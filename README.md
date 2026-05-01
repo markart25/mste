@@ -20,7 +20,7 @@ cd mste
 pipx install --editable .
 ```
 
-### Arch Linux (AUR) (not yet mabye soon)
+### Arch Linux (AUR) (should work)
 
 ```sh
 yay -S mste
