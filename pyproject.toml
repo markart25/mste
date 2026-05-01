@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mste"
+version = "0.1.0"
+description = "A small nano-like terminal text editor in Python"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "markart25", email = "139384872+markart25@users.noreply.github.com" }]
+classifiers = [
+    "Environment :: Console :: Curses",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Editors",
+]
+
+[project.scripts]
+mste = "mste:main"
+
+[tool.setuptools]
+py-modules = ["mste"]
