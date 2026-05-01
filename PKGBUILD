@@ -9,7 +9,7 @@ license=('MIT')
 depends=('python')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/markart25/mste/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('56b8c14da6d738d526acbdd107252b34d3d7d4809cdb7c9a680dccc329f809f0')
 
 build() {
     cd "$pkgname-$pkgver"
