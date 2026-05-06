@@ -6,3 +6,10 @@ dist/
 .venv/
 venv/
 .vscode/
+
+# makepkg build artifacts
+pkg/
+src/
+*.pkg.tar.zst
+*.tar.gz
+.SRCINFO

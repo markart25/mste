@@ -10,6 +10,9 @@ Keybindings:
   Ctrl-K  Cut current line
   Ctrl-U  Paste cut line
   Ctrl-W  Search
+  Ctrl-A  Select all
+  Ctrl-Z  Undo
+  Ctrl-Y  Redo
   Arrows / PgUp / PgDn / Home / End  Move
   Backspace / Delete / Enter / Tab    Edit
 """
@@ -19,8 +22,9 @@ import os
 import sys
 import argparse
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 TAB_SIZE = 4
+UNDO_LIMIT = 200  # max number of snapshots kept on the undo stack
 
 
 class Editor:
@@ -39,6 +43,15 @@ class Editor:
         # Selection: (anchor_y, anchor_x). When None, no selection is active.
         # The active selection runs from anchor to (cy, cx).
         self.sel_anchor = None
+        # Undo / redo stacks. Each entry is a snapshot tuple:
+        #   (lines_tuple, cy, cx, dirty)
+        # `lines` is stored as a tuple so it's immutable and cheap to compare.
+        self.undo_stack = []
+        self.redo_stack = []
+        # Coalescing: consecutive printable-char insertions merge into one
+        # undo entry until the user does something else. We tag each snapshot
+        # with the kind of edit that produced it; matching kinds coalesce.
+        self.last_edit_kind = None
 
         if filename and os.path.exists(filename):
             self.load(filename)
@@ -107,6 +120,7 @@ class Editor:
         bounds = self.selection_bounds()
         if bounds is None:
             return False
+        self.push_undo("replace")
         (sy, sx), (ey, ex) = bounds
         if sy == ey:
             self.lines[sy] = self.lines[sy][:sx] + self.lines[sy][ex:]
@@ -127,6 +141,66 @@ class Editor:
         self.cy = len(self.lines) - 1
         self.cx = len(self.lines[self.cy])
         self.status = "Selected all"
+
+    # ---------- undo / redo ----------
+    def _snapshot(self):
+        """Return a snapshot of buffer state suitable for undo."""
+        return (tuple(self.lines), self.cy, self.cx, self.dirty)
+
+    def _restore(self, snap):
+        lines, cy, cx, dirty = snap
+        self.lines = list(lines)
+        if not self.lines:
+            self.lines = [""]
+        self.cy = min(cy, len(self.lines) - 1)
+        self.cx = min(cx, len(self.lines[self.cy]))
+        self.dirty = dirty
+        self.clear_selection()
+
+    def push_undo(self, kind):
+        """Save current state to undo stack before an edit.
+
+        `kind` is a tag describing the edit type ('type', 'newline',
+        'backspace', 'delete', 'cut', 'paste', 'replace', etc.). Consecutive
+        edits of the kinds 'type', 'backspace', or 'delete' are coalesced
+        into a single undo step so the user doesn't have to mash Ctrl-Z to
+        undo a word. Any edit immediately after a 'replace' (selection
+        deleted by a keystroke) also coalesces — this means 'select-all +
+        type', 'select-all + paste', etc. each count as a single undo.
+        """
+        coalesce_kinds = ("type", "backspace", "delete")
+        coalesce = self.undo_stack and (
+            (kind in coalesce_kinds and kind == self.last_edit_kind)
+            or (self.last_edit_kind == "replace")
+        )
+        if not coalesce:
+            self.undo_stack.append((kind, self._snapshot()))
+            if len(self.undo_stack) > UNDO_LIMIT:
+                self.undo_stack.pop(0)
+        # Any new edit invalidates the redo history.
+        self.redo_stack.clear()
+        self.last_edit_kind = kind
+
+    def undo(self):
+        if not self.undo_stack:
+            self.status = "Nothing to undo"
+            return
+        # Save current state onto redo stack so the user can re-apply.
+        kind, snap = self.undo_stack.pop()
+        self.redo_stack.append((kind, self._snapshot()))
+        self._restore(snap)
+        self.last_edit_kind = None  # break coalescing chain
+        self.status = "Undo"
+
+    def redo(self):
+        if not self.redo_stack:
+            self.status = "Nothing to redo"
+            return
+        kind, snap = self.redo_stack.pop()
+        self.undo_stack.append((kind, self._snapshot()))
+        self._restore(snap)
+        self.last_edit_kind = None
+        self.status = "Redo"
 
     # ---------- drawing ----------
     def gutter_width(self):
@@ -220,7 +294,7 @@ class Editor:
             pass
 
         # Help bar
-        help_text = "^S Save  ^O SaveAs  ^X Quit  ^A SelAll  ^K Cut  ^U Paste  ^W Search  ^G Help"
+        help_text = "^S Save  ^X Quit  ^Z Undo  ^Y Redo  ^A SelAll  ^K Cut  ^U Paste  ^W Search  ^G Help"
         try:
             self.stdscr.addstr(h - 1, 0, help_text[: w - 1])
         except curses.error:
@@ -255,12 +329,14 @@ class Editor:
 
     # ---------- editing ----------
     def insert_char(self, ch):
+        self.push_undo("type")
         line = self.lines[self.cy]
         self.lines[self.cy] = line[: self.cx] + ch + line[self.cx :]
         self.cx += 1
         self.dirty = True
 
     def insert_newline(self):
+        self.push_undo("newline")
         line = self.lines[self.cy]
         self.lines[self.cy] = line[: self.cx]
         self.lines.insert(self.cy + 1, line[self.cx :])
@@ -269,6 +345,9 @@ class Editor:
         self.dirty = True
 
     def backspace(self):
+        if self.cx == 0 and self.cy == 0:
+            return  # nothing to undo
+        self.push_undo("backspace")
         if self.cx > 0:
             line = self.lines[self.cy]
             self.lines[self.cy] = line[: self.cx - 1] + line[self.cx :]
@@ -285,6 +364,9 @@ class Editor:
 
     def delete(self):
         line = self.lines[self.cy]
+        if self.cx >= len(line) and self.cy >= len(self.lines) - 1:
+            return  # at EOF, nothing to delete
+        self.push_undo("delete")
         if self.cx < len(line):
             self.lines[self.cy] = line[: self.cx] + line[self.cx + 1 :]
             self.dirty = True
@@ -296,6 +378,7 @@ class Editor:
     def cut_line(self):
         if not self.lines:
             return
+        self.push_undo("cut")
         self.cut_buffer = [self.lines[self.cy]]
         if len(self.lines) == 1:
             self.lines[0] = ""
@@ -311,6 +394,7 @@ class Editor:
         if not self.cut_buffer:
             self.status = "Nothing to paste"
             return
+        self.push_undo("paste")
         for i, line in enumerate(self.cut_buffer):
             self.lines.insert(self.cy + i, line)
         self.cy += len(self.cut_buffer)
@@ -396,6 +480,8 @@ class Editor:
             "Ctrl-K     Cut current line (or selection)",
             "Ctrl-U     Paste cut text",
             "Ctrl-A     Select all",
+            "Ctrl-Z     Undo",
+            "Ctrl-Y     Redo",
             "Ctrl-W     Search",
             "Ctrl-G     This help",
             "",
@@ -425,6 +511,10 @@ class Editor:
             code = ord(ch) if len(ch) == 1 else None
             if code == 1:    # Ctrl-A — select all
                 self.select_all()
+            elif code == 26:  # Ctrl-Z — undo
+                self.undo()
+            elif code == 25:  # Ctrl-Y — redo
+                self.redo()
             elif code == 24:  # Ctrl-X
                 if self.confirm_quit():
                     self.quit = True
@@ -513,21 +603,30 @@ class Editor:
 
             if moved:
                 self.clear_selection()
+                self.last_edit_kind = None  # break undo coalescing
 
     def _cut_selection(self):
         """Cut current selection into cut_buffer, then delete it."""
         bounds = self.selection_bounds()
         if bounds is None:
             return
+        self.push_undo("cut")
         (sy, sx), (ey, ex) = bounds
         if sy == ey:
             self.cut_buffer = [self.lines[sy][sx:ex]]
+            self.lines[sy] = self.lines[sy][:sx] + self.lines[sy][ex:]
         else:
             buf = [self.lines[sy][sx:]]
             buf.extend(self.lines[sy + 1 : ey])
             buf.append(self.lines[ey][:ex])
             self.cut_buffer = buf
-        self.delete_selection()
+            head = self.lines[sy][:sx]
+            tail = self.lines[ey][ex:]
+            self.lines[sy] = head + tail
+            del self.lines[sy + 1 : ey + 1]
+        self.cy, self.cx = sy, sx
+        self.clear_selection()
+        self.dirty = True
         self.status = f"Cut {len(self.cut_buffer)} line(s)"
 
     def run(self):
