@@ -20,13 +20,10 @@ cd mste
 pip install --user .
 ```
 
-<<<<<<< Updated upstream
-### Arch Linux (AUR) (should work)
-=======
+
 This puts a `mste` command on your `$PATH`.
 
-### Arch Linux (AUR)
->>>>>>> Stashed changes
+### Arch Linux (AUR) (currently on 0.1.0)
 
 ```sh
 yay -S mste
