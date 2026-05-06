@@ -23,7 +23,7 @@ pip install --user .
 
 This puts a `mste` command on your `$PATH`.
 
-### Arch Linux (AUR) (currently on 0.1.0)
+### Arch Linux (AUR) 
 
 ```sh
 yay -S mste
