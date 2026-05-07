@@ -1,4 +1,4 @@
-# mste
+# mste (mark's simple text editor)
 
 A small nano-like terminal text editor written in Python using the standard library `curses` module. Zero dependencies.
 
