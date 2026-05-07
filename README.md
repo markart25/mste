@@ -1,4 +1,4 @@
-# mste (mark's simple text editor)
+# mste
 
 A small nano-like terminal text editor written in Python using the standard library `curses` module. Zero dependencies.
 
@@ -8,6 +8,7 @@ A small nano-like terminal text editor written in Python using the standard libr
 - Cut/paste a line, incremental search
 - Save / Save As, dirty-buffer warnings on quit
 - Title bar, status line, help bar
+- Auto-themes from terminal palette — works seamlessly with `pywal` and similar tools
 - Works on any Linux/macOS terminal that supports curses
 
 ## Install
@@ -20,10 +21,9 @@ cd mste
 pip install --user .
 ```
 
-
 This puts a `mste` command on your `$PATH`.
 
-### Arch Linux (AUR) 
+### Arch Linux (AUR)
 
 ```sh
 yay -S mste

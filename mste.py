@@ -22,7 +22,7 @@ import os
 import sys
 import argparse
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 TAB_SIZE = 4
 UNDO_LIMIT = 200  # max number of snapshots kept on the undo stack
 
@@ -61,11 +61,16 @@ class Editor:
         try:
             curses.start_color()
             curses.use_default_colors()
-            curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)  # status bar
-            curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLUE)   # title bar
-            curses.init_pair(3, curses.COLOR_WHITE, -1)                  # gutter (dim)
-            curses.init_pair(4, curses.COLOR_YELLOW, -1)                 # gutter, current line
-            curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)   # selection highlight
+            # All accents use ANSI indexed colors (COLOR_RED, COLOR_CYAN, etc.)
+            # which are slots in the *terminal's* palette — not fixed RGB values.
+            # Tools like pywal that retheme the terminal palette to match the
+            # current wallpaper will retheme mste automatically. On a stock
+            # terminal, you get the standard 16-color ANSI scheme.
+            curses.init_pair(1, 0, curses.COLOR_RED)             # status bar
+            curses.init_pair(2, 0, curses.COLOR_RED)             # title bar
+            curses.init_pair(3, -1, -1)                          # gutter (terminal default)
+            curses.init_pair(4, curses.COLOR_RED, -1)            # gutter, current line (accent)
+            curses.init_pair(5, 0, curses.COLOR_CYAN)            # selection highlight
         except curses.error:
             pass
 
@@ -222,7 +227,7 @@ class Editor:
         bar = title + center.center(max(0, w - len(title) - 1))
         bar = bar[: w - 1]
         try:
-            self.stdscr.addstr(0, 0, bar.ljust(w - 1), curses.color_pair(2) | curses.A_REVERSE)
+            self.stdscr.addstr(0, 0, bar.ljust(w - 1), curses.color_pair(2) | curses.A_BOLD)
         except curses.error:
             pass
 
@@ -289,7 +294,7 @@ class Editor:
         status_text = self.status if self.status else f"Ln {self.cy + 1}, Col {self.cx + 1}"
         try:
             self.stdscr.addstr(h - 2, 0, status_text[: w - 1].ljust(w - 1),
-                               curses.color_pair(1) | curses.A_REVERSE)
+                               curses.color_pair(1) | curses.A_BOLD)
         except curses.error:
             pass
 
@@ -410,7 +415,7 @@ class Editor:
             display = prompt_text + "".join(buf)
             try:
                 self.stdscr.addstr(h - 2, 0, display[: w - 1].ljust(w - 1),
-                                   curses.color_pair(1) | curses.A_REVERSE)
+                                   curses.color_pair(1) | curses.A_BOLD)
                 self.stdscr.move(h - 2, min(len(prompt_text) + pos, w - 1))
             except curses.error:
                 pass
