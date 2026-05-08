@@ -3,6 +3,10 @@
 A small nano-like terminal text editor written in Python using the standard library `curses` module. Zero dependencies.
 in my opinion it is better than nano. unlike nano mste has themes from terminal colours see below
 
+![Desktop Screenshot](https://github.com/markart25/mste/raw/main/images/mountains.png)
+![Desktop Screenshot](https://github.com/markart25/mste/raw/main/images/flowers.png)
+
+
 ## Features
 
 - Familiar nano-style keybindings (`Ctrl-S` save, `Ctrl-X` quit, etc.)
