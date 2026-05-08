@@ -5,7 +5,7 @@ in my opinion it is better than nano. unlike nano mste has themes from terminal 
 
 ![Desktop Screenshot](https://github.com/markart25/mste/raw/main/images/mountains.png)
 ![Desktop Screenshot](https://github.com/markart25/mste/raw/main/images/flowers.png)
-![Desktop Screenshot](https://github.com/markart25/mste/blob/main/images/2026-05-08-100716_hyprshot.png)
+![Desktop Screenshot](https://github.com/markart25/mste/raw/main/images/2026-05-08-100716_hyprshot.png)
 
 btw for the hyprland configs head to 
 https://github.com/markart25/markdots 
