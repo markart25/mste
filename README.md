@@ -1,6 +1,7 @@
 # mste (mark's simple text editor)
 
 A small nano-like terminal text editor written in Python using the standard library `curses` module. Zero dependencies.
+in my opinion it is better than nano. unlike nano mste has themes from terminal colours see below
 
 ## Features
 
