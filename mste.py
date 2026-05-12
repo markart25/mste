@@ -2,6 +2,9 @@
 """
 mste - a small nano-like terminal text editor written in Python.
 
+Config file lives at ~/.config/mste/config.conf (or
+$XDG_CONFIG_HOME/mste/config.conf). Created automatically on first run.
+
 Keybindings:
   Ctrl-S  Save
   Ctrl-O  Save As
@@ -21,10 +24,116 @@ import curses
 import os
 import sys
 import argparse
+import configparser
+from pathlib import Path
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 TAB_SIZE = 4
 UNDO_LIMIT = 200  # max number of snapshots kept on the undo stack
+
+
+# ---------- config file ----------
+DEFAULT_CONFIG_TEMPLATE = """\
+# mste config file
+# Edit this file and restart mste to apply changes.
+#
+# Colors are slot indices (0-15) into your terminal's ANSI palette.
+# Tools like pywal that retheme the terminal will retheme mste too.
+# Use -1 to mean "terminal default".
+#
+# Standard ANSI slot mapping:
+#   0 = black     8  = bright black (gray)
+#   1 = red       9  = bright red
+#   2 = green     10 = bright green
+#   3 = yellow    11 = bright yellow
+#   4 = blue      12 = bright blue
+#   5 = magenta   13 = bright magenta
+#   6 = cyan      14 = bright cyan
+#   7 = white     15 = bright white
+
+[colors]
+# Title bar background (the bar at the very top).
+title_bg = 1
+# Title bar foreground.
+title_fg = 0
+
+# Status / prompt bar (second from bottom).
+status_bg = 1
+status_fg = 0
+
+# Gutter (line numbers down the left side).
+# These default to the terminal foreground/background.
+gutter_bg = -1
+gutter_fg = -1
+
+# Current line in the gutter is highlighted with this fg color
+# against the same background.
+gutter_current = 1
+
+# Selection highlight.
+selection_bg = 6
+selection_fg = 0
+"""
+
+# Defaults applied if config is missing keys or contains bad values.
+DEFAULT_COLORS = {
+    "title_bg": 1,
+    "title_fg": 0,
+    "status_bg": 1,
+    "status_fg": 0,
+    "gutter_bg": -1,
+    "gutter_fg": -1,
+    "gutter_current": 1,
+    "selection_bg": 6,
+    "selection_fg": 0,
+}
+
+
+def config_path():
+    """Where the config file lives, following XDG spec."""
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".config"
+    return base / "mste" / "config.conf"
+
+
+def ensure_config_exists():
+    """Create the config file with the default template if it doesn't exist.
+
+    Returns the resolved path either way. Failures (e.g. no write permission)
+    are silent — we just continue with defaults.
+    """
+    path = config_path()
+    try:
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(DEFAULT_CONFIG_TEMPLATE)
+    except OSError:
+        pass  # read-only home? just run with defaults
+    return path
+
+
+def load_colors():
+    """Read color settings from the config file, falling back to defaults
+    for any missing or invalid values."""
+    colors = dict(DEFAULT_COLORS)
+    path = ensure_config_exists()
+    if not path.exists():
+        return colors
+    parser = configparser.ConfigParser()
+    try:
+        parser.read(path, encoding="utf-8")
+    except (configparser.Error, OSError):
+        return colors
+    if "colors" not in parser:
+        return colors
+    section = parser["colors"]
+    for key in DEFAULT_COLORS:
+        if key in section:
+            try:
+                colors[key] = int(section[key])
+            except ValueError:
+                pass  # leave default in place
+    return colors
 
 
 class Editor:
@@ -61,16 +170,14 @@ class Editor:
         try:
             curses.start_color()
             curses.use_default_colors()
-            # All accents use ANSI indexed colors (COLOR_RED, COLOR_CYAN, etc.)
-            # which are slots in the *terminal's* palette — not fixed RGB values.
-            # Tools like pywal that retheme the terminal palette to match the
-            # current wallpaper will retheme mste automatically. On a stock
-            # terminal, you get the standard 16-color ANSI scheme.
-            curses.init_pair(1, 0, curses.COLOR_RED)             # status bar
-            curses.init_pair(2, 0, curses.COLOR_RED)             # title bar
-            curses.init_pair(3, -1, -1)                          # gutter (terminal default)
-            curses.init_pair(4, curses.COLOR_RED, -1)            # gutter, current line (accent)
-            curses.init_pair(5, 0, curses.COLOR_CYAN)            # selection highlight
+            # Load color config; falls back to defaults silently on bad input.
+            c = load_colors()
+            # ANSI palette slots — terminal themes (pywal etc.) retint these.
+            curses.init_pair(1, c["status_fg"], c["status_bg"])     # status bar
+            curses.init_pair(2, c["title_fg"], c["title_bg"])       # title bar
+            curses.init_pair(3, c["gutter_fg"], c["gutter_bg"])     # gutter
+            curses.init_pair(4, c["gutter_current"], c["gutter_bg"])  # current-line gutter
+            curses.init_pair(5, c["selection_fg"], c["selection_bg"])  # selection
         except curses.error:
             pass
 

@@ -60,6 +60,29 @@ mste notes.txt    # open a file
 | `Ctrl-W` | Search            |
 | `Ctrl-G` | Help              |
 
+## Configuration
+ 
+On first launch, mste creates a config file at `~/.config/mste/config.conf`
+(or `$XDG_CONFIG_HOME/mste/config.conf` if set). Edit it and restart mste
+to apply changes.
+ 
+Colors are indices into your terminal's ANSI palette (0–15) so they retint
+automatically with tools like pywal. Use `-1` for "terminal default".
+ 
+```ini
+[colors]
+title_bg = 1
+title_fg = 0
+status_bg = 1
+status_fg = 0
+gutter_bg = -1
+gutter_fg = -1
+gutter_current = 1
+selection_bg = 6
+selection_fg = 0
+```
+
+
 ## License
 
 MIT
